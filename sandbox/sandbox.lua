@@ -6,7 +6,7 @@ local factory1 = component.proxy(factoryArray[1])
 event.ignoreAll()
 event.clear()
 
-getStackCount = function(n,sn)
+local getStackCount = function(n,sn)
   local inventory = factory1:getInventories()[n]
   local c = "-"
 
