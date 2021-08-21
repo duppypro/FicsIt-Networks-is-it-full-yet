@@ -15,7 +15,8 @@ gpu:bindScreen(screen)
 gpu:setSize(136,64) -- force to high res. cuz why not?
 local w, h = gpu:getSize()
 local drawChar = " "
-gpu:setBackground(0.0, 0.2, 0.2, 1.0) -- solid Cyan for bounds check. Only seen at init
+local brightness = 0.333
+gpu:setBackground(0.0, 0.2, 0.2, brightness) -- solid Cyan for bounds check. Only seen at init
 gpu:fill(0, 0, w, h, drawChar)
 gpu:flush()
 
@@ -108,19 +109,19 @@ local function drawTrack(track)
 end
 
 while true do
- gpu:setBackground(.25,.25,.25,1)
- gpu:setForeground(.75,.75,.75,1)
+ gpu:setBackground(.25,.25,.25,brightness)
+ gpu:setForeground(.75,.75,.75,brightness)
  drawChar = "+" -- grey on grey crosshairs suggest foundations as background
  gpu:fill(0, 0, w, h, drawChar) -- grey on grey crosshairs suggest foundations as background
 
- gpu:setBackground(0,0,0,1) -- draw tracks in solid black
- gpu:setForeground(.75,.75,.75,1) -- foreground unecessary since drawLine() uses space
+ gpu:setBackground(0,0,0,brightness) -- draw tracks in solid black
+ gpu:setForeground(.75,.75,.75,brightness) -- foreground unecessary since drawLine() uses space
  drawChar = " "
  for _,t in pairs(tracks) do
   drawTrack(t)
  end
 
- gpu:setBackground(242/384,101/384,17/384,1) -- use approximation of Satisfactory Orange from default paint slot
+ gpu:setBackground(242/512, 101/512, 17/512, brightness) -- use approximation of Satisfactory Orange from default paint slot
  gpu:setForeground(0,0,0,0)
  drawChar = " "
  for _,train in pairs(trackGraph:getTrains()) do
