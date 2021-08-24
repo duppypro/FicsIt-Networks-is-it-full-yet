@@ -1,28 +1,30 @@
-local gpu = computer.getPCIDevices(findClass("GPUT1"))[1]
+local gpu = computer.getPCIDevices(findClass("GPU_T1_C"))[1]
 
-local screen = component.proxy(component.findComponent(findClass("Screen")))[1]
+local screen = component.proxy(component.findComponent(findClass("Build_Screen_C")))[1]
 if not screen then
- screen = computer.getPCIDevices(findClass("FINScreen"))[1]
+ screen = computer.getPCIDevices(findClass("ScreenDriver_C"))[1]
 end
 
 local station = component.proxy(component.findComponent(findClass("Build_TrainStation_C")))[1]
-local trackGraph = station:getTrackGraph()
+local trains = station:getTrackGraph():getTrains()
+print("Found", #trains, "trains.")
 
 event.ignoreAll()
 event.clear() -- added to clear the event cache - being paranoid about repeatability
 
 gpu:bindScreen(screen)
-gpu:setSize(136,64) -- force to high res. cuz why not?
+gpu:setSize(212,100) -- force to high res. cuz why not?
 local w, h = gpu:getSize()
+print("Screen found", screen.nick, screen, "W x H", w, h)
 local drawChar = " "
-local brightness = 0.333
+local brightness = 0.34 -- less than 0.33 seems to end up black, but 1 is too bright on external screens)
 gpu:setBackground(0.0, 0.2, 0.2, brightness) -- solid Cyan for bounds check. Only seen at init
 gpu:fill(0, 0, w, h, drawChar)
 gpu:flush()
 
 local tracks = {}
 local lastLineNum = 0 -- enable printing debug progress without slowing down too much
-local printEveryLineNum = 7 -- enable printing debug progress without slowing down too much
+local printEveryLineNum = 100 -- enable printing debug progress without slowing down too much
 
 local function addTrack() end -- pre define for lint
 
@@ -94,7 +96,8 @@ local function drawLine(x1, y1, x2, y2)
  local dirX = x2 - x1
  local dirY = y2 - y1
  local l = math.sqrt(dirX*dirX + dirY*dirY)
- if l == 0 then l = 0.1 end -- avoid divide by 0
+
+ if l == 0 then l = 0.1 end -- avoid divide by 0 and still do loop once for 1 pixel
  for i=0,l,0.5 do
   local x = math.floor(round(x1 + ((dirX/l) * i)))
   local y = math.floor(round(y1 + ((dirY/l) * i)))
@@ -108,23 +111,27 @@ local function drawTrack(track)
  drawLine(x1, y1, x2, y2)
 end
 
+local startMillis = computer.millis()
 while true do
+ print("start loop")
  gpu:setBackground(.25,.25,.25,brightness)
  gpu:setForeground(.75,.75,.75,brightness)
  drawChar = "+" -- grey on grey crosshairs suggest foundations as background
  gpu:fill(0, 0, w, h, drawChar) -- grey on grey crosshairs suggest foundations as background
 
- gpu:setBackground(0,0,0,brightness) -- draw tracks in solid black
- gpu:setForeground(.75,.75,.75,brightness) -- foreground unecessary since drawLine() uses space
+ gpu:setBackground(0,0,0,0) -- draw tracks in solid black
+ gpu:setForeground(.75,.75,.75,0) -- foreground unecessary since drawLine() uses space
  drawChar = " "
+ startMillis = computer.millis()
  for _,t in pairs(tracks) do
   drawTrack(t)
  end
+ print("draw", #tracks, "tracks done in", computer.millis() - startMillis, "millis.")
 
  gpu:setBackground(242/512, 101/512, 17/512, brightness) -- use approximation of Satisfactory Orange from default paint slot
  gpu:setForeground(0,0,0,0)
  drawChar = " "
- for _,train in pairs(trackGraph:getTrains()) do
+ for _,train in pairs(trains) do
   --print("  [".._.."]", train)
   local v = train:getVehicles()[1] -- must init with something
   local x1,y1 = actorToScreen(v.location.x, v.location.y)
@@ -140,7 +147,9 @@ while true do
   end
   drawLine(x1, y1, x2, y2) -- TODO make each train car correct size and rotation
  end
- gpu:flush()
+ print("drawTrains done in", computer.millis() - startMillis, "millis.")
 
- event.pull(1/30) -- limit to 30fps
+ gpu:flush()
+ print("flushed")
+ event.pull(1/30 - (computer.millis() - startMillis)/1000) -- limit to 30fps. not necessary because drawing a few hundred tracks takes > 1 second anyway
 end
