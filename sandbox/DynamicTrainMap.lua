@@ -21,7 +21,7 @@ gpu:flush()
 
 local tracks = {}
 local lastLineNum = 0 -- enable printing debug progress without slowing down too much
-local printEveryLineNum = 100 -- enable printing debug progress without slowing down too much
+local printEveryLineNum = 24 -- enable printing debug progress without slowing down too much
 
 local function addTrack() end -- pre define for lint
 
@@ -36,11 +36,16 @@ local function addTrackConnection(con)
 end
 
 addTrack = function (track)
+ -- check for duplicates and skip
+ if #tracks > 2 and tracks[#tracks-1].hash == track.hash then return end -- Duplicates most often at end
  for _,t in pairs(tracks) do
   if t.hash == track.hash then
-   return
+    -- still have to check entire graph for duplicate
+    return
   end
  end
+
+ -- cache end locations
  local cachedTrack = {}
  cachedTrack.hash = track.hash
  local c0 = track:getConnection(0)
@@ -49,13 +54,12 @@ addTrack = function (track)
  cachedTrack.loc1 = c1.connectorLocation
  table.insert(tracks, cachedTrack)
 
+ -- follow each end of the track
  addTrackConnection(c0)
  addTrackConnection(c1)
 end
 
-
-
-addTrack(station:getTrackPos())
+addTrack(station:getTrackPos()) -- can start with any track. BUGBUG sometimes this empty at game load
 print("Done finding tracks.", #tracks,"total.")
 
 local min = {}
@@ -72,12 +76,14 @@ local function connectorBounds(loc)
  if not max.y or y > max.y then max.y = y end
 end
 
+-- find min and max world x,y bounds of all the tracks
 for _,t in pairs(tracks) do
  connectorBounds(t.loc0)
  connectorBounds(t.loc1)
 end
 
 local function actorToScreen(x, y)
+-- convert world actor x,y to screen x,y
  local rangeX = max.x - min.x
  local rangeY = max.y - min.y
  x = x - min.x
@@ -118,25 +124,26 @@ end
 while true do
  print("start loop")
  local startMillis = computer.millis()
+
+-- Draw background.
  gpu:setBackground(.25,.25,.25,brightness)
  gpu:setForeground(.75,.75,.75,brightness)
  drawChar = "+" -- grey on grey crosshairs suggest foundations as background
  gpu:fill(0, 0, w, h, drawChar) -- grey on grey crosshairs suggest foundations as background
 
+-- Draw Tracks
  gpu:setBackground(0,0,0,0) -- draw tracks in solid black
  gpu:setForeground(.75,.75,.75,0) -- foreground unecessary since drawLine() uses space
  drawChar = " "
-
-
  for _,t in pairs(tracks) do
   drawTrack(t)
  end
  print("draw", #tracks, "tracks done in split ", computer.millis() - startMillis, "millis.")
 
+-- Draw Trains
  gpu:setBackground(242/512, 101/512, 17/512, brightness) -- use approximation of Satisfactory Orange from default paint slot
  gpu:setForeground(0,0,0,0)
  drawChar = " "
- 
  for _,train in pairs(trains) do
   --print("  [".._.."]", train)
   local v = train:getVehicles()[1] -- must init with something
@@ -155,6 +162,7 @@ while true do
  end
  print("drawTrains done in split", computer.millis() - startMillis, "millis.")
 
+-- Don't forget to flush it to the visible buffer
  gpu:flush()
  print("flushed")
  print("loop total", computer.millis() - startMillis, "millis.")
