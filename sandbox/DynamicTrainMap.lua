@@ -20,47 +20,41 @@ gpu:fill(0, 0, w, h, drawChar)
 gpu:flush()
 
 local tracks = {}
+local numTracks = 0
 local lastLineNum = 0 -- enable printing debug progress without slowing down too much
-local printEveryLineNum = 24 -- enable printing debug progress without slowing down too much
+local skipNLines = 100 -- enable printing debug progress without slowing down too much
 
-local function addTrack() end -- pre define for lint
+local function addTrack() end -- pre define for lint because addTrackConnection() references addTrack()
 
 local function addTrackConnection(con)
  for _,c in pairs(con:getConnections()) do
   addTrack(c:getTrack())
  end
- if #tracks > lastLineNum then
-   print(#tracks, "tracks found")
-   lastLineNum = #tracks + printEveryLineNum
+ if numTracks > lastLineNum then
+   print(numTracks, "tracks found")
+   lastLineNum = lastLineNum + skipNLines
  end
 end
 
-addTrack = function (track)
- -- check for duplicates and skip
- if #tracks > 2 and tracks[#tracks-1].hash == track.hash then return end -- Duplicates most often at end
- for _,t in pairs(tracks) do
-  if t.hash == track.hash then
-    -- still have to check entire graph for duplicate
-    return
-  end
+addTrack = function (track) -- now safe to add definition that references addTrackConnection()
+ -- check for duplicates and only add if it doesn't already exist (tracks loop back on themsleves)
+ if tracks[track.hash] == nil then
+  -- cache end locations
+  local cachedTrack = {}
+  local c0 = track:getConnection(0)
+  local c1 = track:getConnection(1)
+  cachedTrack.loc0 = c0.connectorLocation
+  cachedTrack.loc1 = c1.connectorLocation
+  tracks[track.hash] = cachedTrack
+  numTracks = numTracks + 1
+  -- follow each end of the track
+  addTrackConnection(c0)
+  addTrackConnection(c1)
  end
-
- -- cache end locations
- local cachedTrack = {}
- cachedTrack.hash = track.hash
- local c0 = track:getConnection(0)
- local c1 = track:getConnection(1)
- cachedTrack.loc0 = c0.connectorLocation
- cachedTrack.loc1 = c1.connectorLocation
- table.insert(tracks, cachedTrack)
-
- -- follow each end of the track
- addTrackConnection(c0)
- addTrackConnection(c1)
 end
 
-addTrack(station:getTrackPos()) -- can start with any track. BUGBUG sometimes this empty at game load
-print("Done finding tracks.", #tracks,"total.")
+addTrack(station:getTrackPos()) -- can start with any track. BUGBUG sometimes this is empty at game load
+print("Done finding tracks.", numTracks,"total.")
 
 local min = {}
 local max = {}
@@ -110,7 +104,7 @@ local function drawLine(x1, y1, x2, y2)
   local y = math.floor(y1 + (dirY/l) * i + 0.5)
   gpu:setText(x, y, drawChar)
  end
-end 
+end
 
 local function drawTrack(track)
  if track.x1 == nil then
@@ -122,7 +116,7 @@ local function drawTrack(track)
 end
 
 while true do
- print("start loop")
+--print("start loop")
  local startMillis = computer.millis()
 
 -- Draw background.
@@ -138,7 +132,7 @@ while true do
  for _,t in pairs(tracks) do
   drawTrack(t)
  end
- print("draw", #tracks, "tracks done in split ", computer.millis() - startMillis, "millis.")
+ --print("draw", #tracks, "tracks done in split ", computer.millis() - startMillis, "millis.")
 
 -- Draw Trains
  gpu:setBackground(242/512, 101/512, 17/512, brightness) -- use approximation of Satisfactory Orange from default paint slot
@@ -160,10 +154,10 @@ while true do
   end
   drawLine(x1, y1, x2, y2) -- TODO make each train car correct size and rotation
  end
- print("drawTrains done in split", computer.millis() - startMillis, "millis.")
+ --print("drawTrains done in split", computer.millis() - startMillis, "millis.")
 
 -- Don't forget to flush it to the visible buffer
  gpu:flush()
- print("flushed")
+ --print("flushed")
  print("loop total", computer.millis() - startMillis, "millis.")
 end
