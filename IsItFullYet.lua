@@ -39,8 +39,8 @@ local worldToScreen = function(w, s, wv)
  local x = wv.x - w.min.x -- offset in world units
  local y = wv.y - w.min.y -- offset in world units
  local sv = {}
- sv.x = s.pad.x + math.floor((x / w.range.x) * s.range.x)
- sv.y = s.pad.y + math.floor((y / w.range.y) * s.range.y)
+ sv.x = s.pad.x + math.floor((x / w.range.x) * s.range.x + 0.5)
+ sv.y = s.pad.y + math.floor((y / w.range.y) * s.range.y + 0.5)
  return sv
 end
 
