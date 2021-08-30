@@ -6,7 +6,7 @@
 --
 -- Feature Road Map:
 --  [X] Report internal Inventory on print()
---  [ ] Add GPU:Screen bar graphs
+--  [X] Add GPU:Screen bar graphs
 --  [ ] Add ordering options for first and last machines
 --  [ ] Support control panel switch, dials widgets for display choices
 --  [ ] Add history, come up with a metric for rate of fill?  Efficiency over time window?
