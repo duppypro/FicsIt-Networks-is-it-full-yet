@@ -1,22 +1,23 @@
---[[--
- IsItFullYet.lua
-  Monitor manifold over time. Original idea to help repro max pipe fluid loss bugs
-  Even with no fluid or item loss bugs this is a useful way to check 100% efficiency,
-  visualize priming, compare load balance vs. manifold or many other.
+--
+-- IsItFullYet.lua
+--  Monitor manifold over time. Original idea to help repro max pipe fluid loss bugs
+--  Even with no fluid or item loss bugs this is a useful way to check 100% efficiency,
+--  visualize priming, compare load balance vs. manifold or many other.
+--
+-- Feature Road Map:
+--  [X] Report internal Inventory on print()
+--  [ ] Add GPU:Screen bar graphs
+--  [ ] Add ordering options for first and last machines
+--  [ ] Support control panel switch, dials widgets for display choices
+--  [ ] Add history, come up with a metric for rate of fill?  Efficiency over time window?
+--  [ ] Separate data gathering and data presentation into different Computer Cases
+--  [ ] Send data over Internet Card to Firebase Realtime Database and make front end web viewer
+--
 
- Feature Road Map:
-  [X] Report internal Inventory on print()
-  [ ] Add GPU:Screen bar graphs
-  [ ] Add ordering options for first and last machines
-  [ ] Support control panel switch, dials widgets for display choices
-  [ ] Add history, come up with a metric for rate of fill?  Efficiency over time window?
-  [ ] Separate data gathering and data presentation into different Computer Cases
-  [ ] Send data over Internet Card to Firebase Realtime Database and make front end web viewer
---]]--
+-------------------------------
+-- Function definitions
+-------------------------------
 
---[[--
- Function definitions
---]]--
 local gpu
 local screen
 local screenMinMax = {min={}, max={}, pad={}, range={}}
@@ -35,7 +36,7 @@ local expandMinMax = function(self, vector)
 end
 
 local worldToScreen = function(w, s, wv)
--- return vector sv in screen s coord from vector wv in world w coord
+ -- return vector sv in screen s coord from vector wv in world w coord
  local x = wv.x - w.min.x -- offset in world units
  local y = wv.y - w.min.y -- offset in world units
  local sv = {}
@@ -44,9 +45,25 @@ local worldToScreen = function(w, s, wv)
  return sv
 end
 
+local countToBarString = function (count, width, opt_rangeMin, opt_rangeMax)
+ -- count is between 0 and width inclusive.
+ -- Or if included between rangeMin and rangeMax inclusive.
+ -- returns a string width characters wide filled with count "#" chars left justified.
+ local min = opt_rangeMin or 0
+ local max = opt_rangeMax or width
+ local range = max - min
+ count = math.floor(((count-min)/range) * width + 0.5 + math.random()) -- try random for time averaged jitter extra resolution
+ if count < 0 then count = 0 end
+ if count > width then count = width end
+ return ("#"):rep(count)..(" "):rep(width-count)
+end
+
 local drawInventory = function (count, sv)
- gpu:setText(sv.x-6/2, sv.y, tostring(""):padSpaces(6))
- gpu:setText(sv.x-6/2, sv.y, tostring(count):padSpaces(6))
+ local width = 30
+ gpu:setText(sv.x-width/2, sv.y-1, countToBarString(count, width, 0, 50000))
+ gpu:setText(sv.x-width/2, sv.y, countToBarString(count, width, 0, 50000))
+ gpu:setText(sv.x-width/2, sv.y+1, countToBarString(count, width, 0, 50000))
+ gpu:setText(sv.x-width/2 + 1, sv.y, string.format("%1.1f", count/1000):padSpaces(5).." ")
 end
 
 local drawManifold = function (m)
@@ -95,7 +112,7 @@ print("World Min Max", m.worldMinMax.min.x, m.worldMinMax.min.y, "to", m.worldMi
 print("Finding screen")
 gpu = computer.getPCIDevices(findClass("GPU_T1_C"))[1]
 
-screen = component.proxy(component.findComponent(findClass("Build_Screen_C")))[1]
+screen = component.proxy(component.findComponent("bargraph"))[1]
 if not screen then
  screen = computer.getPCIDevices(findClass("ScreenDriver_C"))[1]
  if screen == nil then print("No screen found.") else print("Using internal screen.") end
@@ -103,11 +120,11 @@ else
  print("Found Large Screen. Nick/Group =", screen.nick, "UUID =", screen.hash)
 end
 gpu:bindScreen(screen)
-gpu:setSize(212/4,100/4) -- force to high res. cuz why not?
+gpu:setSize(212,100) -- force to high res. cuz why not?
 local w, h = gpu:getSize()
 screenMinMax.min.x = 0; screenMinMax.min.y = 0
 screenMinMax.max.x = w; screenMinMax.max.y = h
-screenMinMax.pad.x = 4; screenMinMax.pad.y = 1 -- size of border
+screenMinMax.pad.x = 16; screenMinMax.pad.y = 2 -- size of border
 screenMinMax.range.x = screenMinMax.max.x - screenMinMax.min.x - screenMinMax.pad.x*2
 screenMinMax.range.y = screenMinMax.max.y - screenMinMax.min.y - screenMinMax.pad.y*2
 --print("Screen found", screen.nick, screen, "W x H", w, h)
@@ -122,7 +139,7 @@ local status
 while true do
  status = ""
  for uuid, inv in pairs(m.factories) do
-  status = status..tostring(inv.inventory:getStack(0).count):padSpaces()
+  status = status..string.format("%1.1f", inv.inventory:getStack(0).count/1000):padSpaces()
  end
  print(string.padSpaces(computer.millis()), status)
  drawManifold(m)
