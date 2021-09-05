@@ -15,12 +15,13 @@
 --
 
 -------------------------------
--- Function definitions
+-- Variables and Function definitions
 -------------------------------
 
 local gpu
 local screen
 local screenMinMax = {min={}, max={}, pad={}, range={}}
+local hBarWidth
 
 local expandMinMax = function(self, vector)
  local x, y = vector.x, vector.y
@@ -52,18 +53,18 @@ local countToBarString = function (count, width, opt_rangeMin, opt_rangeMax)
  local min = opt_rangeMin or 0
  local max = opt_rangeMax or width
  local range = max - min
- count = math.floor(((count-min)/range) * width + 0.5 + math.random()) -- try random for time averaged jitter extra resolution
+ count = math.floor(((count-min)/range) * width + math.random()) -- try random for time averaged jitter extra resolution
  if count < 0 then count = 0 end
  if count > width then count = width end
  return ("#"):rep(count)..(" "):rep(width-count)
 end
 
 local drawInventory = function (count, sv)
- local width = 30
- gpu:setText(sv.x-width/2, sv.y-1, countToBarString(count, width, 0, 50000))
- gpu:setText(sv.x-width/2, sv.y, countToBarString(count, width, 0, 50000))
- gpu:setText(sv.x-width/2, sv.y+1, countToBarString(count, width, 0, 50000))
- gpu:setText(sv.x-width/2 + 1, sv.y, string.format("%1.1f", count/1000):padSpaces(5).." ")
+ local bar = countToBarString(count, hBarWidth, 0, 50000)
+ gpu:setText(sv.x-hBarWidth/2, sv.y-1, bar)
+ gpu:setText(sv.x-hBarWidth/2, sv.y, bar)
+ gpu:setText(sv.x-hBarWidth/2, sv.y+1, bar)
+ gpu:setText(sv.x-hBarWidth/2 + 1, sv.y, string.format("%1.1f", count/1000):padSpaces(5).." ")
 end
 
 local drawManifold = function (m)
@@ -89,9 +90,9 @@ string.padSpaces = function (s, n)
  end
 end
 
---[[--
- Code starts here
---]]--
+-------------------------------
+-- Code starts here
+-------------------------------
 print("All Fuel Generators connected to this Computer Case.")
 local m = {} -- the myFuelGens object
 m.UUIDs = component.findComponent(findClass("Build_GeneratorFuel_C"))
@@ -122,9 +123,10 @@ end
 gpu:bindScreen(screen)
 gpu:setSize(212,100) -- force to high res. cuz why not?
 local w, h = gpu:getSize()
+hBarWidth = 64 -- width in full character size of single bar in horizontal bar graph
 screenMinMax.min.x = 0; screenMinMax.min.y = 0
 screenMinMax.max.x = w; screenMinMax.max.y = h
-screenMinMax.pad.x = 16; screenMinMax.pad.y = 2 -- size of border
+screenMinMax.pad.x = 1 + hBarWidth/2; screenMinMax.pad.y = 2 -- size of border
 screenMinMax.range.x = screenMinMax.max.x - screenMinMax.min.x - screenMinMax.pad.x*2
 screenMinMax.range.y = screenMinMax.max.y - screenMinMax.min.y - screenMinMax.pad.y*2
 --print("Screen found", screen.nick, screen, "W x H", w, h)
@@ -138,10 +140,10 @@ gpu:flush()
 local status
 while true do
  status = ""
- for uuid, inv in pairs(m.factories) do
-  status = status..string.format("%1.1f", inv.inventory:getStack(0).count/1000):padSpaces()
+ for uuid, f in pairs(m.factories) do
+  status = status..string.format("%1.1f", f.inventory:getStack(0).count/1000):padSpaces()
  end
  print(string.padSpaces(computer.millis()), status)
  drawManifold(m)
- event.pull(1/30) -- update at 90bpm 
+ event.pull(1/12) -- update at 12fps
 end
